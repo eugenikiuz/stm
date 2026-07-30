@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отчёт по эффективности рекламы</title>
+<link rel="stylesheet" href="dash_style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Отчёт по эффективности продвижения</div>
+    <h1>Дашборд рекламной отчётности</h1>
+    <p class="sub">Динамика трафика, обращений и стоимости привлечения по месяцам. Данные по сайту — с начала февраля&nbsp;2025&nbsp;г., Яндекс&nbsp;Бизнес — подключён с апреля&nbsp;2025, контекстная реклама — подключена с июня&nbsp;2026.</p>
+    <nav class="nav">
+      <a href="#b1">Трафик и обращения</a>
+      <a href="#b2">Поведение на сайте</a>
+      <a href="#b3">Яндекс Бизнес</a>
+      <a href="#b4">Контекстная реклама</a>
+      <a href="#b5">Выводы</a>
+    </nav>
+  </header>
+
+  <!-- БЛОК 1 -->
+  <section id="b1">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2>Трафик по источникам и целевые действия</h2>
+      <span class="note">посетители · с февраля 2025</span>
+    </div>
+    <div class="panel">
+      <h3>Как растёт аудитория и обращения</h3>
+      <p class="p-sub">Столбцы — посетители с накоплением по источникам. Бирюзовая линия — целевые действия сайта. Видно, как подключение каждого канала меняет объём трафика и обращений.</p>
+      <div class="chart-box"><canvas id="ch1"></canvas></div>
+    </div>
+    <div class="callout">
+      <b>Важно для чтения графика:</b> <b>январь 2025</b> исключён — настраивалось отслеживание целевых действий, данные неполные. В <b>октябре 2025</b> велись работы по сайту, что дало искусственный всплеск целевых действий (не отражает реального роста спроса). В <b>июне 2026</b> подключена контекстная реклама, что дало значимый рост трафика на сайт и количества целевых действий на сайте. В данные по трафику с контекста также включена статистика дополнительного лендинга, на который ведём на услугу имплантации.
+    </div>
+  </section>
+
+  <!-- БЛОК 2 -->
+  <section id="b2">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2>Поведение посетителей на сайте</h2>
+      <span class="note">весь трафик</span>
+    </div>
+    <div class="behave" id="behave"></div>
+    <div class="callout">
+      Подключение нового канала на старте в норме даёт ухудшение поведенческих метрик, которые постепенно улучшаются по мере оптимизации трафика. Холодный трафик (например, небрендовые кампании Яндекс Директа) в норме будет давать небольшую отрицательную динамику поведенческих метрик.
+    </div>
+  </section>
+
+  <!-- БЛОК 3 -->
+  <section id="b3">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2>Яндекс Бизнес</h2>
+      <span class="note" id="biz-note"></span>
+    </div>
+    <div class="kpis" id="biz-kpis"></div>
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Объём и стоимость целевого действия</h3>
+        <p class="p-sub">Столбцы — сколько действий, линия — во сколько обходится каждое.</p>
+        <div class="chart-box short"><canvas id="ch-biz"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>CTR и конверсия в клиента</h3>
+        <p class="p-sub">Кликабельность рекламы и доля переходов, ставших целевым клиентом.</p>
+        <div class="chart-box short"><canvas id="ch-biz2"></canvas></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:18px">
+      <h3>Звонки: принятые и непринятые</h3>
+      <p class="p-sub">Показатель непринятых звонков сейчас на контроле — до настройки коллтрекинга к этим цифрам стоит относиться как к ориентировочным (возможны неточности учёта на стороне Яндекса).</p>
+      <div class="chart-box short"><canvas id="ch-calls"></canvas></div>
+    </div>
+  </section>
+
+  <!-- БЛОК 4 -->
+  <section id="b4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2>Контекстная реклама (Директ)</h2>
+      <span class="note" id="direct-note"></span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+      <div class="seg" id="direct-seg">
+        <button data-m="Июнь" aria-pressed="true">Июнь</button>
+        <button data-m="Июль" aria-pressed="false">Июль*</button>
+      </div>
+      <span style="font-size:12.5px;color:var(--ink-faint)">* июль — предварительные данные</span>
+    </div>
+
+    <div class="kpis" id="direct-kpis"></div>
+
+    <div class="grid-2" style="margin-bottom:22px">
+      <div class="panel">
+        <h3>Из чего складываются целевые действия</h3>
+        <p class="p-sub">Распределение ЦД по типам за выбранный месяц.</p>
+        <div class="chart-box short"><canvas id="ch-donut"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>Динамика июнь → июль</h3>
+        <p class="p-sub">Как изменились ключевые показатели во втором месяце работы.</p>
+        <div class="kpis" id="direct-compare" style="margin-bottom:0"></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px;font-weight:800;margin:6px 0 16px">Кампании по услугам</h3>
+    <div id="camp-groups"></div>
+  </section>
+
+  <!-- БЛОК 5 -->
+  <section id="b5">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Выводы и акценты</h2>
+    </div>
+    <div class="notes">
+      <h3>Главное за период</h3>
+      <ul id="notes-list"></ul>
+    </div>
+  </section>
+
+  <footer>
+    Дашборд рекламной отчётности<br>
+    Источники: Яндекс Метрика (2 счётчика) · Яндекс Бизнес · Яндекс Директ · Обновляется вручную
+  </footer>
+
+</div>
+
+<script src="chart.min.js"></script>
+<script src="data_inline.js"></script>
+<script src="dash_app.js"></script>
+</body>
+</html>
