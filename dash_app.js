@@ -17,12 +17,20 @@ const money = n => n==null?"—":Math.round(n).toLocaleString("ru-RU")+" ₽";
 const pct1 = n => n==null?"—":(n*100).toLocaleString("ru-RU",{maximumFractionDigits:1})+"%";
 const mmss = sec => { if(sec==null) return "—"; const m=Math.floor(sec/60),s=sec%60; return m+":"+String(s).padStart(2,"0"); };
 
-function deltaBadge(cur, prev, costMode=false){
+// mode: "good_up" (рост=хорошо), "good_down" (снижение=хорошо), "neutral" (без оценки, серый)
+// Возвращает бейдж, где ЦВЕТ = оценка для бизнеса, а СТРЕЛКА = направление.
+function deltaBadge(cur, prev, mode="good_up"){
   if(cur==null||prev==null||prev===0) return "";
   const rel = Math.round((cur-prev)/Math.abs(prev)*100);
-  let cls = rel>0?"up":rel<0?"down":"flat";
   const arrow = rel>0?"▲":rel<0?"▼":"→";
   const sign = rel>0?"+":"";
+  let cls;
+  if(rel===0) cls="flat";
+  else if(mode==="neutral") cls="flat";
+  else {
+    const good = mode==="good_down" ? rel<0 : rel>0;
+    cls = good ? "up" : "down"; // "up"=зелёный, "down"=красный (см. CSS)
+  }
   return `<span class="k-delta ${cls}">${arrow} ${sign}${rel}%</span>`;
 }
 // последнее ненулевое значение и предыдущее
@@ -66,6 +74,7 @@ function block1(){
       plugins:{legend:legendBottom(),tooltip:Object.assign(tip(),{callbacks:{
         label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.raw)}`}})},
       scales:baseScales({
+        x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:60,minRotation:60,font:{size:10}}},
         y:{stacked:true,position:"left",grid:gridOpt,title:{display:true,text:"посетители"}},
         y1:{position:"right",grid:{drawOnChartArea:false},title:{display:true,text:"ЦД"}}
       })}
@@ -99,24 +108,20 @@ function block2(){
   const depth=slice(depthF), bounce=slice(bounceF), time=slice(timeF);
   // карточки
   const cards=[
-    {id:"sp-depth",label:"Глубина просмотра",arr:depthF,spark:depth,color:C.teal,unit:" стр.",cost:false,
+    {id:"sp-depth",label:"Глубина просмотра",arr:depthF,spark:depth,color:C.teal,unit:" стр.",mode:"good_up",
      hint:"Сколько страниц смотрит один посетитель"},
-    {id:"sp-bounce",label:"Отказы",arr:bounceF,spark:bounce,color:C.red,unit:"",cost:true,
+    {id:"sp-bounce",label:"Отказы",arr:bounceF,spark:bounce,color:C.red,unit:"",mode:"good_down",
      hint:"Доля тех, кто ушёл сразу. Ниже — лучше"},
-    {id:"sp-time",label:"Время на сайте",arr:timeF,spark:time,color:C.amber,unit:"",cost:false,
+    {id:"sp-time",label:"Время на сайте",arr:timeF,spark:time,color:C.amber,unit:"",mode:"good_up",
      hint:"Средняя длительность визита"},
   ];
   document.getElementById("behave").innerHTML = cards.map(c=>{
     const lp=lastPair(c.arr);
-    const rel = lp.prev? Math.round((lp.cur-lp.prev)/Math.abs(lp.prev)*100):0;
-    let bcls = rel>0?"up":rel<0?"down":"flat";
-    if(c.cost){bcls = rel>0?"down":rel<0?"up":"flat";} // для отказов инверсия
-    const badgeCls = bcls==="up"?"k-delta up":bcls==="down"?"k-delta down":"k-delta flat";
-    const arrow = rel>0?"▲":rel<0?"▼":"→";
+    const badge = deltaBadge(lp.cur,lp.prev,c.mode).replace('class="k-delta','class="b-delta k-delta');
     const valTxt = c.id==="sp-time"?mmss(lp.cur):(c.id==="sp-depth"?lp.cur.toLocaleString("ru-RU",{maximumFractionDigits:2}):pct1(lp.cur));
     return `<div class="bcard">
       <div class="b-top"><span class="b-label">${c.label}</span>
-        <span class="b-delta ${badgeCls}">${arrow} ${rel>0?"+":""}${rel}%</span></div>
+        ${badge}</div>
       <div class="b-val" style="color:${c.color}">${valTxt}<span style="font-size:.5em;color:var(--ink-faint);font-weight:600">${c.unit}</span></div>
       <div class="b-spark"><canvas id="${c.id}"></canvas></div>
       <div class="b-hint">${c.hint} · ${lp.curM} vs ${lp.prevM}</div>
@@ -133,20 +138,19 @@ function block2(){
 function block3(){
   // KPI по последнему доступному месяцу
   const K=[
-    {arr:B.cpa,label:"Стоимость целевого действия",cls:"kpi cost amber",f:money},
-    {arr:B.t_actions,label:"Целевые действия",cls:"kpi teal",f:fmt},
-    {arr:B.cpl,label:"Стоимость целевого клиента",cls:"kpi cost amber",f:money},
-    {arr:B.t_clients,label:"Целевые клиенты",cls:"kpi teal",f:fmt},
-    {arr:B.spend_vat,label:"Расход с НДС",cls:"kpi plum",f:money},
-    {arr:B.cr,label:"Конверсия в клиента",cls:"kpi teal",f:pct1},
+    {arr:B.cpa,label:"Стоимость целевого действия",cls:"kpi amber",f:money,mode:"good_down"},
+    {arr:B.t_actions,label:"Целевые действия",cls:"kpi teal",f:fmt,mode:"good_up"},
+    {arr:B.cpl,label:"Стоимость целевого клиента",cls:"kpi amber",f:money,mode:"good_down"},
+    {arr:B.t_clients,label:"Целевые клиенты",cls:"kpi teal",f:fmt,mode:"good_up"},
+    {arr:B.spend_vat,label:"Расход с НДС",cls:"kpi plum",f:money,mode:"neutral"},
+    {arr:B.cr,label:"Конверсия в клиента",cls:"kpi teal",f:pct1,mode:"good_up"},
   ];
   document.getElementById("biz-kpis").innerHTML = K.map(k=>{
     const lp=lastPair(k.arr);
-    const cost = k.cls.includes("cost");
     return `<div class="${k.cls}"><span class="bar"></span>
       <div class="k-label">${k.label}</div>
       <div class="k-val tnum">${k.f(lp.cur)}</div>
-      ${deltaBadge(lp.cur,lp.prev,cost)}
+      ${deltaBadge(lp.cur,lp.prev,k.mode)}
       <div class="k-sub">${lp.curM} · сравнение с ${lp.prevM}</div>
     </div>`;
   }).join("");
@@ -244,14 +248,15 @@ function renderDirect(){
   // Донат типов ЦД
   drawDonut(t);
 
-  // функция бледной подписи динамики к прошлому месяцу для метрики карточки
-  // costMode: снижение = хорошо (зелёный). value больше — badge направление.
-  function trend(cur, prev, costMode){
+  // Подпись динамики к прошлому месяцу. mode: good_up / good_down / neutral.
+  // Цвет = оценка для бизнеса, стрелка = направление.
+  function trend(cur, prev, mode="good_up"){
     if(prev==null || prev===0 || cur==null) return "";
     const rel = Math.round((cur-prev)/Math.abs(prev)*100);
     if(rel===0) return `<span class="cm-trend flat">→ 0%</span>`;
-    const good = costMode ? rel<0 : rel>0;
     const arrow = rel>0?"▲":"▼";
+    if(mode==="neutral") return `<span class="cm-trend flat">${arrow} ${rel>0?"+":""}${rel}%</span>`;
+    const good = mode==="good_down" ? rel<0 : rel>0;
     return `<span class="cm-trend ${good?"good":"bad"}">${arrow} ${rel>0?"+":""}${rel}%</span>`;
   }
 
@@ -268,7 +273,7 @@ function renderDirect(){
       const on=c.status==="Активна";
       // ищем ту же кампанию в предыдущем месяце
       const p = prevMonth ? D.find(x=>x.month===prevMonth && x.name===c.name) : null;
-      const tr = (cur,prev,cost)=> p ? trend(cur,prev,cost) : "";
+      const tr = (cur,prev,mode)=> p ? trend(cur,prev,mode) : "";
       return `<div class="camp ${on?"":"off"}">
         <div class="c-head">
           <span class="c-type ${typeCls(c.type)}">${c.type}</span>
@@ -276,12 +281,12 @@ function renderDirect(){
         </div>
         <div class="c-name">${c.name}</div>
         <div class="c-metrics">
-          <div class="cm"><span class="cm-label">Всего ЦД</span><span class="cm-val big" style="color:var(--navy)">${fmt(c.total_cd)}</span>${tr(c.total_cd,p?.total_cd,false)}</div>
-          <div class="cm"><span class="cm-label">Стоимость ЦД</span><span class="cm-val" style="color:var(--amber)">${money(c.cpl_vat)}</span>${tr(c.cpl_vat,p?.cpl_vat,true)}</div>
-          <div class="cm"><span class="cm-label">Посетители</span><span class="cm-val">${fmt(c.visitors)}</span>${tr(c.visitors,p?.visitors,false)}</div>
-          <div class="cm"><span class="cm-label">CR в ЦД</span><span class="cm-val">${pct1(c.cr_cd)}</span>${tr(c.cr_cd,p?.cr_cd,false)}</div>
-          <div class="cm"><span class="cm-label">CTR</span><span class="cm-val">${pct1(c.ctr)} <small>CPC ${money(c.cpc)}</small></span>${tr(c.ctr,p?.ctr,false)}</div>
-          <div class="cm"><span class="cm-label">Бюджет с НДС</span><span class="cm-val">${money(c.budget_vat)}</span>${tr(c.budget_vat,p?.budget_vat,false)}</div>
+          <div class="cm"><span class="cm-label">Всего ЦД</span><span class="cm-val big" style="color:var(--navy)">${fmt(c.total_cd)}</span>${tr(c.total_cd,p?.total_cd,"good_up")}</div>
+          <div class="cm"><span class="cm-label">Стоимость ЦД</span><span class="cm-val" style="color:var(--amber)">${money(c.cpl_vat)}</span>${tr(c.cpl_vat,p?.cpl_vat,"good_down")}</div>
+          <div class="cm"><span class="cm-label">Посетители</span><span class="cm-val">${fmt(c.visitors)}</span>${tr(c.visitors,p?.visitors,"good_up")}</div>
+          <div class="cm"><span class="cm-label">CR в ЦД</span><span class="cm-val">${pct1(c.cr_cd)}</span>${tr(c.cr_cd,p?.cr_cd,"good_up")}</div>
+          <div class="cm"><span class="cm-label">CTR</span><span class="cm-val">${pct1(c.ctr)} <small>CPC ${money(c.cpc)}</small></span>${tr(c.ctr,p?.ctr,"good_up")}</div>
+          <div class="cm"><span class="cm-label">Бюджет с НДС</span><span class="cm-val">${money(c.budget_vat)}</span>${tr(c.budget_vat,p?.budget_vat,"neutral")}</div>
         </div>
       </div>`;
     }).join("");
@@ -311,18 +316,19 @@ function drawDonut(t){
 function directCompare(){
   const jun=directTotals("Июнь"), jul=directTotals("Июль");
   const rows=[
-    {label:"Всего ЦД",a:jun.total_cd,b:jul.total_cd,f:fmt,cost:false},
-    {label:"Стоимость ЦД",a:jun.cpa,b:jul.cpa,f:money,cost:true},
-    {label:"Конверсия в ЦД",a:jun.cr,b:jul.cr,f:pct1,cost:false},
-    {label:"CTR",a:jun.ctr,b:jul.ctr,f:pct1,cost:false},
-    {label:"Расход с НДС",a:jun.budget_vat,b:jul.budget_vat,f:money,cost:false},
+    {label:"Всего ЦД",a:jun.total_cd,b:jul.total_cd,f:fmt,mode:"good_up"},
+    {label:"Стоимость ЦД",a:jun.cpa,b:jul.cpa,f:money,mode:"good_down"},
+    {label:"Конверсия в ЦД",a:jun.cr,b:jul.cr,f:pct1,mode:"good_up"},
+    {label:"CTR",a:jun.ctr,b:jul.ctr,f:pct1,mode:"good_up"},
+    {label:"Расход с НДС",a:jun.budget_vat,b:jul.budget_vat,f:money,mode:"neutral"},
   ];
   document.getElementById("direct-compare").innerHTML = rows.map(r=>{
     const rel=r.a?Math.round((r.b-r.a)/Math.abs(r.a)*100):0;
-    let good = r.cost ? rel<0 : rel>0;
-    const cls = rel===0?"flat":(good?"up":"down");
     const arrow=rel>0?"▲":rel<0?"▼":"→";
-    return `<div class="kpi ${r.cost?"cost":""} navy"><span class="bar"></span>
+    let cls;
+    if(rel===0||r.mode==="neutral") cls="flat";
+    else cls = (r.mode==="good_down" ? rel<0 : rel>0) ? "up" : "down";
+    return `<div class="kpi navy"><span class="bar"></span>
       <div class="k-label">${r.label}</div>
       <div class="k-val tnum" style="font-size:20px">${r.f(r.b)}</div>
       <span class="k-delta ${cls}">${arrow} ${rel>0?"+":""}${rel}% <span style="font-weight:600;opacity:.7">к июню</span></span>
@@ -345,11 +351,11 @@ function bindDirectPeriod(){
 //  Выводы (заполняются вручную)
 // ============================================================
 const NOTES=[
-  "Июль — месяц роста результативности при неизменном бюджете. Расход по каналам остался на прежнем уровне, а целевых действий стало заметно больше и каждое обошлось дешевле. Эффективность выросла, а не просто увеличились вложения.",
-  "Трафик сайта немного снизился (посетители 5138 → 4846), но целевые действия почти удвоились: 332 → 576. На сайт пришла более целевая аудитория — при меньшем объёме трафика обращений кратно больше.",
-  "Поведенческие метрики улучшились по мере оптимизации контекста: глубина просмотра выросла (2,16 → 2,33), отказы снизились (25% → 20%). Это подтверждает, что трафик нового канала «дозревает» и становится качественнее.",
-  "Яндекс Бизнес продолжает дешеветь по стоимости привлечения: стоимость целевого действия 101 → 86 ₽, стоимость клиента 118 → 101 ₽, при этом действий больше (308 → 373), а конверсия в клиента выросла до 29,8%. Приём звонков в июле также заметно улучшился.",
-  "Контекст: имплантация (РСЯ) — драйвер месяца: целевых действий втрое больше (51 → 153) при стоимости заявки вдвое ниже (562 → 208 ₽). «Лечение во сне» на поиске выправилось — заявки на 41% дешевле, конверсия выросла вдвое. Брендовые запросы стабильно дают самый недорогой лид.",
+  "В июле получили рост ×2 по количеству целевых действий по сравнению со средними показателями до подключения контекстной рекламы (среднее только с Яндекс Бизнесом = 306 ЦД, в июле получили 627 ЦД с сайта, лендинга и карт).",
+  "Трафик сайта (включая лендинг имплантации) немного снизился по сравнению с июнем (посетители 5138 → 4846), но целевые действия почти удвоились: 332 → 576. На сайт пришла более целевая аудитория — при меньшем объёме трафика обращений кратно больше.",
+  "Поведенческие метрики улучшились по мере оптимизации контекста: глубина просмотра выросла (2,16 → 2,33), отказы снизились (25% → 20%). Это подтверждает, что трафик нового канала становится качественнее.",
+  "Яндекс Бизнес показал снижение стоимости привлечения: стоимость целевого действия 101 → 86 ₽ по сравнению с июнем, стоимость клиента 118 → 101 ₽ по сравнению с июнем. При этом действий больше (308 → 373), а конверсия в клиента выросла до 29,8%. Конверсия в целевого клиента из перехода с Яндекс Бизнеса показывает постоянную динамику к росту, что говорит об успешной оптимизации рекламы. Приём звонков в июле также заметно улучшился по сравнению с предыдущими месяцами — возможно, повлияли изменения в настройках телефонии на стороне клиники.",
+  "Контекст: имплантация (РСЯ) — драйвер месяца: целевых действий втрое больше по сравнению с июнем (51 → 153) при стоимости заявки вдвое ниже (562 → 208 ₽). «Лечение во сне» на поиске выправилось — заявки стали на 41% дешевле, конверсия выросла вдвое. Брендовые запросы стабильно дают самый недорогой лид.",
 ];
 function renderNotes(){
   document.getElementById("notes-list").innerHTML=NOTES.map(n=>`<li>${n}</li>`).join("");
