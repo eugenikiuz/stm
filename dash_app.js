@@ -205,7 +205,16 @@ function block3(){
 // ============================================================
 //  БЛОК 4 — Контекст (Директ)
 // ============================================================
-let directMonth = "Июль";
+// Порядок месяцев для определения «предыдущего». Дополнять при добавлении новых.
+const MONTH_ORDER = ["Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+// список месяцев, реально присутствующих в данных Директа, в хронологическом порядке
+const directMonthsAvail = MONTH_ORDER.filter(m => D.some(c=>c.month===m));
+// последний доступный месяц — активен по умолчанию
+let directMonth = directMonthsAvail[directMonthsAvail.length-1];
+function prevOf(month){
+  const i = directMonthsAvail.indexOf(month);
+  return i>0 ? directMonthsAvail[i-1] : null;
+}
 function svcKey(t){const s=t.toLowerCase();
   if(s.includes("бренд"))return "Брендовые запросы";
   if(s.includes("ретаргет")&&s.includes("сне"))return "Ретаргет · лечение во сне";
@@ -227,7 +236,7 @@ function directTotals(month){
 function renderDirect(){
   const rows=D.filter(c=>c.month===directMonth);
   const t=directTotals(directMonth);
-  const prevMonth = directMonth==="Июль" ? "Июнь" : null; // у июня нет предыдущего в данных
+  const prevMonth = prevOf(directMonth);
   document.getElementById("direct-note").textContent =
     `${rows.length} кампаний · ${directMonth} 2026` + (prevMonth?` · динамика к ${prevMonth}`:` · первый месяц, динамики нет`);
 
@@ -312,15 +321,19 @@ function drawDonut(t){
   });
 }
 
-// сравнение июнь → июль (стрелки)
+// сравнение последнего месяца с предыдущим (стрелки)
 function directCompare(){
-  const jun=directTotals("Июнь"), jul=directTotals("Июль");
+  const curM = directMonthsAvail[directMonthsAvail.length-1];
+  const prevM = prevOf(curM);
+  if(!prevM){ document.getElementById("direct-compare").innerHTML=""; return; }
+  const prevT=directTotals(prevM), curT=directTotals(curM);
+  const prevLabel = prevM.toLowerCase();
   const rows=[
-    {label:"Всего ЦД",a:jun.total_cd,b:jul.total_cd,f:fmt,mode:"good_up"},
-    {label:"Стоимость ЦД",a:jun.cpa,b:jul.cpa,f:money,mode:"good_down"},
-    {label:"Конверсия в ЦД",a:jun.cr,b:jul.cr,f:pct1,mode:"good_up"},
-    {label:"CTR",a:jun.ctr,b:jul.ctr,f:pct1,mode:"good_up"},
-    {label:"Расход с НДС",a:jun.budget_vat,b:jul.budget_vat,f:money,mode:"neutral"},
+    {label:"Всего ЦД",a:prevT.total_cd,b:curT.total_cd,f:fmt,mode:"good_up"},
+    {label:"Стоимость ЦД",a:prevT.cpa,b:curT.cpa,f:money,mode:"good_down"},
+    {label:"Конверсия в ЦД",a:prevT.cr,b:curT.cr,f:pct1,mode:"good_up"},
+    {label:"CTR",a:prevT.ctr,b:curT.ctr,f:pct1,mode:"good_up"},
+    {label:"Расход с НДС",a:prevT.budget_vat,b:curT.budget_vat,f:money,mode:"neutral"},
   ];
   document.getElementById("direct-compare").innerHTML = rows.map(r=>{
     const rel=r.a?Math.round((r.b-r.a)/Math.abs(r.a)*100):0;
@@ -331,31 +344,42 @@ function directCompare(){
     return `<div class="kpi navy"><span class="bar"></span>
       <div class="k-label">${r.label}</div>
       <div class="k-val tnum" style="font-size:20px">${r.f(r.b)}</div>
-      <span class="k-delta ${cls}">${arrow} ${rel>0?"+":""}${rel}% <span style="font-weight:600;opacity:.7">к июню</span></span>
-      <div class="k-sub">июнь: ${r.f(r.a)}</div>
+      <span class="k-delta ${cls}">${arrow} ${rel>0?"+":""}${rel}% <span style="font-weight:600;opacity:.7">к ${prevLabel}</span></span>
+      <div class="k-sub">${prevLabel}: ${r.f(r.a)}</div>
     </div>`;
   }).join("");
 }
 
 function bindDirectPeriod(){
-  document.querySelectorAll("#direct-seg button").forEach(b=>{
+  // генерируем кнопки из доступных месяцев; последний — активен
+  const seg=document.getElementById("direct-seg");
+  seg.innerHTML = directMonthsAvail.map(m=>
+    `<button data-m="${m}" aria-pressed="${m===directMonth}">${m}</button>`).join("");
+  seg.querySelectorAll("button").forEach(b=>{
     b.onclick=()=>{
       directMonth=b.dataset.m;
-      document.querySelectorAll("#direct-seg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m===directMonth));
+      seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m===directMonth));
       renderDirect();
     };
   });
+  // заголовок блока динамики: «предыдущий → последний»
+  const curM=directMonthsAvail[directMonthsAvail.length-1], prevM=prevOf(curM);
+  if(prevM){
+    document.getElementById("compare-title").textContent =
+      `Динамика ${prevM.toLowerCase()} → ${curM.toLowerCase()}`;
+  }
 }
 
 // ============================================================
 //  Выводы (заполняются вручную)
 // ============================================================
 const NOTES=[
-  "В июле получили рост ×2 по количеству целевых действий по сравнению со средними показателями до подключения контекстной рекламы (среднее только с Яндекс Бизнесом = 306 ЦД, в июле получили 627 ЦД с сайта, лендинга и карт).",
-  "Трафик сайта (включая лендинг имплантации) немного снизился по сравнению с июнем (посетители 5138 → 4846), но целевые действия почти удвоились: 332 → 576. На сайт пришла более целевая аудитория — при меньшем объёме трафика обращений кратно больше.",
-  "Поведенческие метрики улучшились по мере оптимизации контекста: глубина просмотра выросла (2,16 → 2,33), отказы снизились (25% → 20%). Это подтверждает, что трафик нового канала становится качественнее.",
-  "Яндекс Бизнес показал снижение стоимости привлечения: стоимость целевого действия 101 → 86 ₽ по сравнению с июнем, стоимость клиента 118 → 101 ₽ по сравнению с июнем. При этом действий больше (308 → 373), а конверсия в клиента выросла до 29,8%. Конверсия в целевого клиента из перехода с Яндекс Бизнеса показывает постоянную динамику к росту, что говорит об успешной оптимизации рекламы. Приём звонков в июле также заметно улучшился по сравнению с предыдущими месяцами — возможно, повлияли изменения в настройках телефонии на стороне клиники.",
-  "Контекст: имплантация (РСЯ) — драйвер месяца: целевых действий втрое больше по сравнению с июнем (51 → 153) при стоимости заявки вдвое ниже (562 → 208 ₽). «Лечение во сне» на поиске выправилось — заявки стали на 41% дешевле, конверсия выросла вдвое. Брендовые запросы стабильно дают самый недорогой лид.",
+  "В августе общее количество целевых действий на сайте выросло на 30% по сравнению с июлем (746 ЦД против 576 в июле). Основной прирост — за счёт отправок форм с Яндекс Бизнеса, контекстной рекламы и трафика из поисковых систем.",
+  "Яндекс Бизнес: стоимость ЦД и стоимость целевого клиента ещё немного снизились (86 → 84 ₽ и 101 → 98 ₽ соответственно). Конверсия из визита в целевого клиента ещё немного выросла (29,8% → 31,3%). Канал отрабатывает стабильно хорошо.",
+  "Контекстная реклама: рост количества целевых действий (+20% к июлю, 304 ЦД) и снижение стоимости ЦД (−15% к июлю, 237 ₽).",
+  "Практически не было непринятых звонков на подменный номер в Яндекс Бизнесе (всего 10 непринятых, 490 принятых).",
+  "Поведенческие метрики остались на уровне июля (глубина 2,33 → 2,30, отказы 19,8% → 19,6%), несмотря на продолжающийся объём платного трафика — качество трафика стабильно высокое.",
+  "Важно: в августе Яндекс снял с публикации РК на лечение во сне из-за повторной модерации (такое иногда бывает). 2 дня реклама не откручивалась, а после перезапуска ушла на переобучение, что дало некоторое ухудшение показателей в моменте — к докризисным значениям мы пока не вернулись. Работы по оптимизации продолжаются.",
 ];
 function renderNotes(){
   document.getElementById("notes-list").innerHTML=NOTES.map(n=>`<li>${n}</li>`).join("");
